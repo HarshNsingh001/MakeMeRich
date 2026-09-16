@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Alembic
+data/migrations/versions/*.pyc
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Docker
+infra/docker/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# ML / Data
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.ckpt
+data/seeds/*.csv
+data/seeds/*.parquet
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
