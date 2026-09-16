@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     secret_key: str = "change_this_in_production"
 
+    # AWS / S3 Storage
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: str = "ap-south-1"
+    s3_bucket_name: Optional[str] = None
+
     # Database
     postgres_host: str = "localhost"
     postgres_port: int = 5432
@@ -32,6 +38,12 @@ class Settings(BaseSettings):
 
     fyers_client_id: str = ""
     fyers_secret_key: str = ""
+
+    # LLM Providers (User fills the one they want to use)
+    active_llm_provider: str = "openai"  # Options: openai, gemini, anthropic
+    openai_api_key: str = ""
+    gemini_api_key: str = ""
+    anthropic_api_key: str = ""
 
     @property
     def database_url(self) -> str:

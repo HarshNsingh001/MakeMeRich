@@ -30,8 +30,9 @@ from providers.base import (
     InstrumentData,
     CorporateActionData,
 )
+from core.monitoring import CircuitBreaker, log_audit_event, get_structured_logger
 
-logger = logging.getLogger(__name__)
+logger = get_structured_logger(__name__)
 
 # Angel One API base URL
 BASE_URL = "https://apiconnect.angelone.in"
@@ -65,6 +66,7 @@ class AngelOneProvider(MarketDataProvider):
         self._totp_secret = totp_secret
         self._jwt_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
+        self._circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60)
         self._client = httpx.AsyncClient(
             base_url=BASE_URL,
             headers={
@@ -116,28 +118,38 @@ class AngelOneProvider(MarketDataProvider):
         self, symbol: str, exchange: str = "NSE", token: Optional[str] = None
     ) -> QuoteData:
         """Fetch LTP + OHLC quote for a symbol."""
-        tok = token or symbol
-        resp = await self._client.post(
-            "/rest/secure/angelbroking/market/v1/quote/",
-            json={"mode": "FULL", "exchangeTokens": {exchange: [tok]}},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        fetched = data["data"]["fetched"][0]
-        now = datetime.utcnow()
-        return QuoteData(
-            symbol=symbol,
-            exchange=exchange,
-            ltp=Decimal(str(fetched.get("ltp", 0))),
-            open=Decimal(str(fetched.get("open", 0))) or None,
-            high=Decimal(str(fetched.get("high", 0))) or None,
-            low=Decimal(str(fetched.get("low", 0))) or None,
-            close=Decimal(str(fetched.get("close", 0))) or None,
-            volume=int(fetched.get("tradeVolume", 0)) or None,
-            change=Decimal(str(fetched.get("netChange", 0))) or None,
-            change_pct=Decimal(str(fetched.get("percentChange", 0))) or None,
-            quote_timestamp=now,
-        )
+        if not self._circuit_breaker.can_execute():
+            raise Exception("Circuit breaker is OPEN for Angel One")
+            
+        try:
+            tok = token or symbol
+            resp = await self._client.post(
+                "/rest/secure/angelbroking/market/v1/quote/",
+                json={"mode": "FULL", "exchangeTokens": {exchange: [tok]}},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            fetched = data["data"]["fetched"][0]
+            now = datetime.utcnow()
+            quote = QuoteData(
+                symbol=symbol,
+                exchange=exchange,
+                ltp=Decimal(str(fetched.get("ltp", 0))),
+                open=Decimal(str(fetched.get("open", 0))) or None,
+                high=Decimal(str(fetched.get("high", 0))) or None,
+                low=Decimal(str(fetched.get("low", 0))) or None,
+                close=Decimal(str(fetched.get("close", 0))) or None,
+                volume=int(fetched.get("tradeVolume", 0)) or None,
+                change=Decimal(str(fetched.get("netChange", 0))) or None,
+                change_pct=Decimal(str(fetched.get("percentChange", 0))) or None,
+                quote_timestamp=now,
+            )
+            self._circuit_breaker.record_success()
+            return quote
+        except httpx.HTTPError as e:
+            self._circuit_breaker.record_failure()
+            log_audit_event(logger, "PROVIDER_FAIL", "provider", "angel_one", {"endpoint": "get_quote", "error": str(e)})
+            raise
 
     async def get_candles(
         self,

@@ -75,3 +75,75 @@ async def get_stock(
         instrument=InstrumentOut.model_validate(instrument),
         quote=QuoteOut.model_validate(quote) if quote else None,
     )
+
+
+@router.get("/{symbol}/sector-valuation")
+async def get_sector_valuation(
+    symbol: str,
+    exchange: str = Query(default="NSE"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get sector-relative valuation for a stock (GAP-13).
+
+    Returns PE percentile rank vs sector peers, sector median PE,
+    discount/premium to sector median, and a CHEAP/FAIR/EXPENSIVE label.
+
+    Example response:
+        {
+          "symbol": "HDFCBANK",
+          "sector": "Financial Services",
+          "pe_percentile": 28.5,       # cheaper than 71% of banking peers
+          "valuation_label": "CHEAP",
+          "sector_pe_median": 18.4,
+          "discount_to_median_pct": -15.2,  # 15% cheaper than sector median
+          "peer_count": 42
+        }
+    """
+    from services.sector_valuation import get_sector_valuation_context
+    from models.models import Fundamental
+
+    inst_result = await db.execute(
+        select(Instrument).where(
+            Instrument.symbol == symbol.upper(),
+            Instrument.exchange == exchange,
+        )
+    )
+    instrument = inst_result.scalar_one_or_none()
+    if not instrument:
+        raise HTTPException(status_code=404, detail=f"Stock {symbol} not found")
+
+    # Get latest fundamentals
+    fund_result = await db.execute(
+        select(Fundamental).where(
+            Fundamental.symbol == symbol.upper(),
+            Fundamental.exchange == exchange,
+        ).order_by(Fundamental.as_of_date.desc()).limit(1)
+    )
+    fund = fund_result.scalar_one_or_none()
+
+    from datetime import datetime
+    ctx = await get_sector_valuation_context(
+        db=db,
+        symbol=symbol.upper(),
+        sector=instrument.sector,
+        stock_pe=float(fund.pe_ratio) if fund and fund.pe_ratio else None,
+        stock_pb=float(fund.pb_ratio) if fund and fund.pb_ratio else None,
+        stock_ev_ebitda=float(fund.ev_ebitda) if fund and fund.ev_ebitda else None,
+        as_of=datetime.utcnow(),
+    )
+    from dataclasses import asdict
+    return asdict(ctx)
+
+
+@router.get("/sectors/summary")
+async def get_sectors_summary(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sector rotation dashboard — median PE/PB for all sectors.
+    Sorted from cheapest to most expensive.
+    Cached in Redis for 1 hour.
+    """
+    from services.sector_valuation import get_all_sector_stats
+    return await get_all_sector_stats(db)

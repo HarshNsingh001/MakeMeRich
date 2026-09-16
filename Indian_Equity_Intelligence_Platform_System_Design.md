@@ -594,39 +594,81 @@ F&O should not be added to V1. Options and futures introduce expiry, strike, CE/
 
 # 21. V1 Implementation Checklist
 
-- Create repository structure for backend, frontend-web, mobile, infrastructure and shared contracts.
+> **Status updated: September 2026** — Items marked [x] are implemented in the codebase.
+> Unmarked items are pending.
 
-- Implement instrument master ingestion and symbol normalization.
+- [x] Create repository structure for backend, frontend-web, mobile, infrastructure and shared contracts.
 
-- Implement one market-data provider adapter first; add a second provider adapter before production.
+- [x] Implement instrument master ingestion and symbol normalization. (`services/market_data/ingest.py`, `AngelOneProvider`)
 
-- Build raw -\> normalized -\> derived data pipeline.
+- [x] Implement one market-data provider adapter first. (`services/market_data/providers/angel_one.py` with circuit breaker)
 
-- Set up PostgreSQL + TimescaleDB and Redis.
+- [x] Add a second provider adapter before production. (`services/market_data/providers/yahoo_finance.py` — fallback/research)
 
-- Create market-candle schema and corporate-action handling.
+- [x] Build raw → normalized → derived data pipeline. (`services/market_data/ingest.py` → `models/models.py` → `feature_engine/`)
 
-- Build technical-indicator pipeline.
+- [x] Set up PostgreSQL + TimescaleDB and Redis. (`infra/docker/`, `core/database.py`, `core/redis_client.py`)
 
-- Build fundamentals ingestion and normalization.
+- [x] Create market-candle schema and corporate-action handling.
+  - `MarketCandle` and `CorporateAction` DB models exist.
+  - Corporate action ingestion from Yahoo Finance: `services/api/services/corporate_actions_ingestor.py` (scheduled weekly).
 
-- Build market-regime calculation for NIFTY/sector/breadth/volatility.
+- [x] Build technical-indicator pipeline. (`TechnicalIndicator` model, `ta` library integration)
 
-- Build stock detail APIs and responsive web UI.
+- [x] Build fundamentals ingestion and normalization. (`services/api/services/fundamental_ingestor.py`, `Fundamental`, `FinancialPeriod` models)
 
-- Build market pulse and opportunity-card UX shell.
+- [x] Build market-regime calculation for NIFTY/sector/breadth/volatility. (`agents/nodes/market_regime.py`, `MarketRegimeFeature` model)
 
-- Implement structured agent interfaces, starting with analysis-only mode.
+- [x] Build stock detail APIs and responsive web UI.
+  - Backend: `GET /stocks`, `GET /stocks/{symbol}` in `routers/stocks.py`
+  - Frontend: Next.js app at `apps/web/` with stock detail page
 
-- Implement critic/risk validator.
+- [x] Build market pulse and opportunity-card UX shell.
+  - `apps/web/app/page.tsx` (Market Pulse dashboard)
+  - `apps/web/app/opportunities/` (Opportunity cards)
 
-- Implement recommendation snapshots and audit logs.
+- [x] Implement structured agent interfaces — all 8 agents with typed outputs.
+  - `agents/nodes/`: market_regime, historical, technical, fundamental, entry, risk, critic, synthesizer
+  - `agents/state.py`: `GraphState`, `AgentEvidence`, `OpportunityState`
 
-- Create walk-forward/backtest harness before enabling any production opportunity feed.
+- [x] Implement critic/risk validator. (`agents/nodes/critic.py`, `agents/nodes/risk.py`)
 
-- Add monitoring for data freshness, API failures, queue latency and agent failures.
+- [x] Implement recommendation snapshots and audit logs.
+  - `RecommendationSnapshot` model with full `agent_evidence_json`
+  - `AuditLog` model with DB persistence via `log_audit_event()` in `core/monitoring.py`
 
-- Create provider failover/health status and data-quality checks.
+- [x] Create walk-forward/backtest harness before enabling any production opportunity feed.
+  - `evaluation/backtester.py` with `HistoricalSnapshot` (PiT sealed)
+  - Backtest Lab UI: `apps/web/app/backtest/`
+
+- [x] Add monitoring for data freshness, API failures, queue latency and agent failures.
+  - `/health/live`, `/health/ready`, `/health/data` in `routers/health.py`
+  - Session-aware freshness (market data weekends, 120-day fundamentals)
+  - `AgentStatusEnum` and `log_audit_event()` in `core/monitoring.py`
+
+- [x] Create provider failover/health status and data-quality checks.
+  - `CircuitBreaker` (OPEN/CLOSED/HALF_OPEN) in `core/monitoring.py`
+  - `/health/data` checks all providers
+
+- [x] Implement quantitative screening before LLM analysis. (`feature_engine/screener.py`, `feature_engine/strategy_engine.py`)
+  - 4 configurable strategies: GARP, Momentum, Value, Mean Reversion
+  - Data quality gate (skip AI if score < 70)
+  - PiT-native: Screener accepts `HistoricalSnapshot`
+
+- [x] User authentication (JWT). (`routers/auth.py`, `core/security.py`, `User` model)
+
+- [x] Watchlists and alerts. (`routers/watchlists.py`, `routers/alerts.py`, `Watchlist`, `Alert`, `Notification` models)
+
+- [x] Outcome evaluation (T+5/T+20/T+60 realized returns). (`services/outcome_evaluator.py`)
+
+## Still Pending Before Production
+
+- [ ] WebSocket real-time price stream (`WS /market/stream`)
+- [ ] SEBI Research Analyst compliance review before enabling public recommendations feed
+- [ ] Mobile app (React Native + Expo)
+- [ ] Revenue/EPS CAGR in GARP screener
+- [ ] Sector-relative PE percentile comparison
+- [ ] Feature flag system for provider/model rollout
 
 # 22. Future F&O Architecture
 

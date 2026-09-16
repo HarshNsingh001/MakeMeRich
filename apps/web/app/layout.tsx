@@ -23,7 +23,7 @@ export default function RootLayout({
       <body className="antialiased">
         <div className="flex min-h-screen">
           <NavSidebar />
-          <main style={{ marginLeft: "220px", flex: 1, minHeight: "100vh" }}>
+          <main style={{ marginLeft: "240px", flex: 1, minHeight: "100vh" }}>
             {children}
           </main>
         </div>

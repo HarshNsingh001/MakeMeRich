@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/", label: "Market Pulse", icon: "📊" },
-  { href: "/stocks", label: "Stocks", icon: "📈" },
+  { href: "/opportunities", label: "Opportunities", icon: "🎯" },
+  { href: "/stocks", label: "Stock Screener", icon: "📈" },
+  { href: "/sectors", label: "Sector Rotation", icon: "🔄" },
+  { href: "/alerts", label: "Alerts", icon: "🔔" },
+  { href: "/backtest", label: "Backtest Lab", icon: "🧪" },
 ];
 
 export default function NavSidebar() {
@@ -14,7 +18,7 @@ export default function NavSidebar() {
   return (
     <aside
       style={{
-        width: "220px",
+        width: "240px",
         minHeight: "100vh",
         background: "var(--bg-secondary)",
         borderRight: "1px solid var(--border)",
@@ -24,42 +28,43 @@ export default function NavSidebar() {
         zIndex: 40,
         display: "flex",
         flexDirection: "column",
-        padding: "24px 0",
+        padding: "32px 0 24px",
       }}
     >
       {/* Logo */}
-      <div style={{ padding: "0 20px 28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ padding: "0 24px 40px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, var(--accent-blue-bright), var(--accent-purple))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: 800,
               color: "#fff",
               flexShrink: 0,
+              boxShadow: "0 4px 14px rgba(99,102,241,0.3)"
             }}
           >
             M
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 800, fontSize: 17, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
               MakeMeRich
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
-              EQUITY INTEL · V1
+            <div style={{ fontSize: 10, color: "var(--text-secondary)", letterSpacing: "0.08em", marginTop: 2, fontWeight: 600 }}>
+              AI EQUITY INTEL
             </div>
           </div>
         </div>
       </div>
 
       {/* Nav links */}
-      <nav style={{ flex: 1, padding: "0 12px" }}>
+      <nav style={{ flex: 1, padding: "0 16px" }}>
         {NAV_ITEMS.map((item) => {
           const isActive =
             item.href === "/"
@@ -73,35 +78,64 @@ export default function NavSidebar() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderRadius: 8,
-                marginBottom: 4,
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 10,
+                marginBottom: 6,
                 color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
                 textDecoration: "none",
                 fontSize: 14,
                 fontWeight: isActive ? 600 : 500,
-                background: isActive ? "var(--bg-card)" : "transparent",
-                transition: "all 0.15s",
-                borderLeft: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                background: isActive ? "var(--bg-card-hover)" : "transparent",
+                transition: "all 0.2s",
+                border: "1px solid",
+                borderColor: isActive ? "var(--border-light)" : "transparent",
+                boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.2)" : "none",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = "var(--bg-card)";
+                  (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                  (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
+                }
               }}
             >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
+              <span style={{ fontSize: 18, filter: isActive ? "none" : "grayscale(100%) opacity(0.7)" }}>
+                {item.icon}
+              </span>
               {item.label}
+              {isActive && (
+                <div style={{ marginLeft: "auto", width: 4, height: 16, background: "var(--accent-blue-bright)", borderRadius: 4 }} />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer note */}
-      <div
-        style={{
-          padding: "16px 20px",
-          borderTop: "1px solid var(--border)",
-        }}
-      >
-        <div style={{ fontSize: 10, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          Decision-support tool.
+      {/* Connection Status & Footer note */}
+      <div style={{ padding: "0 24px" }}>
+        <div style={{ 
+          background: "var(--bg-card)", 
+          border: "1px solid var(--border)", 
+          borderRadius: 8, 
+          padding: "12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 16
+        }}>
+          <span className="live-dot" />
+          <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
+            System Online
+          </span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+          AI Decision Support.
           <br />
           Not financial advice.
         </div>
