@@ -112,11 +112,14 @@ class AngelOneProvider(MarketDataProvider):
             logger.error("Angel One: auth error — %s", e)
             return False
 
-    async def get_quote(self, symbol: str, exchange: str = "NSE") -> QuoteData:
+    async def get_quote(
+        self, symbol: str, exchange: str = "NSE", token: Optional[str] = None
+    ) -> QuoteData:
         """Fetch LTP + OHLC quote for a symbol."""
+        tok = token or symbol
         resp = await self._client.post(
             "/rest/secure/angelbroking/market/v1/quote/",
-            json={"mode": "FULL", "exchangeTokens": {exchange: [symbol]}},
+            json={"mode": "FULL", "exchangeTokens": {exchange: [tok]}},
         )
         resp.raise_for_status()
         data = resp.json()
@@ -143,14 +146,16 @@ class AngelOneProvider(MarketDataProvider):
         from_date: datetime,
         to_date: datetime,
         exchange: str = "NSE",
+        token: Optional[str] = None,
     ) -> list[CandleData]:
         """Fetch historical OHLCV candles."""
         interval = TIMEFRAME_MAP.get(timeframe, "ONE_DAY")
+        tok = token or symbol
         resp = await self._client.post(
             "/rest/secure/angelbroking/historical/v1/getCandleData",
             json={
                 "exchange": exchange,
-                "symboltoken": symbol,
+                "symboltoken": tok,
                 "interval": interval,
                 "fromdate": from_date.strftime("%Y-%m-%d %H:%M"),
                 "todate": to_date.strftime("%Y-%m-%d %H:%M"),
@@ -174,24 +179,30 @@ class AngelOneProvider(MarketDataProvider):
         return candles
 
     async def get_instrument_master(self, exchange: str = "NSE") -> list[InstrumentData]:
-        """Fetch full NSE instrument list (uses open endpoint, no auth needed)."""
+        """Fetch full NSE equity instrument list (uses open endpoint, no auth needed)."""
         resp = await httpx.AsyncClient().get(
             "https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json"
         )
         resp.raise_for_status()
         instruments = []
+        seen = set()
         for item in resp.json():
             if item.get("exch_seg") != exchange:
                 continue
-            if item.get("instrumenttype") not in ("", "EQ"):
+            raw_sym = item.get("symbol", "")
+            if exchange == "NSE" and not raw_sym.endswith("-EQ"):
                 continue
+            clean_sym = raw_sym[:-3] if raw_sym.endswith("-EQ") else raw_sym
+            if clean_sym in seen:
+                continue
+            seen.add(clean_sym)
             instruments.append(InstrumentData(
-                symbol=item.get("symbol", ""),
+                symbol=clean_sym,
                 exchange=exchange,
-                name=item.get("name", ""),
+                name=item.get("name", clean_sym),
                 instrument_type="EQ",
                 isin=item.get("isin"),
-                sector=None,   # not in scrip master; enrich separately
+                sector=None,   # enriched separately or via NSE master
                 token=item.get("token"),
                 lot_size=int(item.get("lotsize", 1)),
             ))
